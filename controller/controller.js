@@ -55,7 +55,7 @@ async function dashboard(req, res) {
   res.send("aha");
 }
 
-// async function newIdentity(req, res) {
+async function newIdentity(req, res) {
 //   // const { nama, random } = req.body;
 //   // try {
 //   // const simpan = await pool.query(
@@ -65,8 +65,8 @@ async function dashboard(req, res) {
 //   // } catch (error) {
 //   //   res.json(error);
 //   // }
-//   res.send("simpan");
-// }
+  res.send("simpan");
+}
 
 function aa(req, res) {
   res.send("aha");
