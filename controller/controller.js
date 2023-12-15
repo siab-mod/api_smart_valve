@@ -162,8 +162,7 @@ async function dashboard(req, res) {
           : lastData.rows[0].updated_at * 1,
       rata_rata: rata_rata.rows[0].rata_rata * 1,
       efisiensi:
-        ((lastData.rows[0].volume * 1) / (rata_rata.rows[0].rata_rata * 1)) *
-        100,
+        ((lastData.rows[0].volume * 1) / (rata_rata.rows[0].rata_rata * 1)) * 100,
       status_valve: ref.rows[0].status,
       trigger_valve: ref.rows[0].trigger,
       limitasi: ref.rows[0].limitasi
@@ -176,11 +175,11 @@ async function dashboard(req, res) {
 }
 
 async function newIdentity(req, res) {
-  const { nama, random } = req.body;
+  const { nama, random, password } = req.body;
   try {
     const simpan = await pool.query(
-      "INSERT INTO identitas_smave (nama, random) VALUES ($1, $2)",
-      [nama, random]
+      "INSERT INTO identitas_smave (nama, random, password) VALUES ($1, $2, $3)",
+      [nama, random, password]
     );
     res.json(simpan);
   } catch (error) {
