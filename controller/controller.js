@@ -75,6 +75,13 @@ async function inputData(req, res) {
             cekToken.data.random,
           ]
         );
+
+        // cek count
+        if(data.count + 1 >= 12){
+            // push notifikasi indikasi kebocoran
+        }
+
+
         res.status(200).json({ msg: "success" });
       } else {
         // simpan data
@@ -95,6 +102,7 @@ async function inputData(req, res) {
 
       res.status(200).json();
     }
+
   } else {
     res.status(200).json({ msg: "Invalid token" });
   }
