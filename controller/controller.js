@@ -68,7 +68,7 @@ async function inputData(req, res) {
           [
             data.volume * 1 + volume,
             debit,
-            data.count + 1,
+            debit <= 2 ? data.count + 1 : data.count,
             Date.now(),
             data.id,
             cekToken.data.id,
