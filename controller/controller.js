@@ -68,7 +68,7 @@ async function inputData(req, res) {
           [
             data.volume * 1 + volume,
             debit,
-            debit <= 2 ? data.count + 1 : data.count,
+            debit <= process.env.REF_DEBIT ? data.count + 1 : data.count,
             Date.now(),
             data.id,
             cekToken.data.id,
@@ -76,11 +76,24 @@ async function inputData(req, res) {
           ]
         );
 
+        // cek rata2 penggunaan
+        const rata2 = await pool.query(
+          `SELECT AVG(volume) AS rata_rata
+                      FROM data_smave
+                      WHERE id_user = $1 AND random_user = $2
+                        AND id < (SELECT MAX(id) FROM data_smave WHERE id_user = $1 AND random_user = $2);
+                      `,
+          [cekToken.data.id, cekToken.data.random]
+        );
+
         // cek count
         if (data.count + 1 >= 12) {
           // push notifikasi indikasi kebocoran
         }
 
+        if (data.volume * 1 + volume > rata2.rows[0].rata_rata * 1) {
+          // push notifikasi penggunaan anda meningkat
+        }
         res.status(200).json({ msg: "success" });
       } else {
         // simpan data
@@ -162,10 +175,11 @@ async function dashboard(req, res) {
           : lastData.rows[0].updated_at * 1,
       rata_rata: rata_rata.rows[0].rata_rata * 1,
       efisiensi:
-        ((lastData.rows[0].volume * 1) / (rata_rata.rows[0].rata_rata * 1)) * 100,
+        ((lastData.rows[0].volume * 1) / (rata_rata.rows[0].rata_rata * 1)) *
+        100,
       status_valve: ref.rows[0].status,
       trigger_valve: ref.rows[0].trigger,
-      limitasi: ref.rows[0].limitasi
+      limitasi: ref.rows[0].limitasi,
     };
 
     res.status(200).json(result);
