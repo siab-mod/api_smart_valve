@@ -45,8 +45,16 @@ async function inputData(req, res) {
     if (cekData.rowCount === 0) {
       // simpan data (data pertama akun baru)
       await pool.query(
-        `INSERT INTO data_smave (volume, debit, count, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)`,
-        [volume, debit, 0, Date.now(), 0]
+        `INSERT INTO data_smave (volume, debit, count, created_at, updated_at, id_user, random_user) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          volume,
+          debit,
+          0,
+          Date.now(),
+          0,
+          cekToken.data.id,
+          cekToken.data.random,
+        ]
       );
       res.status(200).json({ msg: "success" });
     } else {
@@ -55,12 +63,13 @@ async function inputData(req, res) {
       if (tanggal(data.created_at) === true) {
         // update data
         await pool.query(
-          `UPDATE data_smave SET volume = $1, debit = $2, count = $3, updated_at = $4) WHERE id = $5 AND random = $6`,
+          `UPDATE data_smave SET volume = $1, debit = $2, count = $3, updated_at = $4 WHERE id = $5 AND id_user = $6 AND random_user = $7`,
           [
             data.volume * 1 + volume,
             debit,
             data.count + 1,
             Date.now(),
+            data.id,
             cekToken.data.id,
             cekToken.data.random,
           ]
@@ -69,8 +78,16 @@ async function inputData(req, res) {
       } else {
         // simpan data
         await pool.query(
-          `INSERT INTO data_smave (volume, debit, count, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)`,
-          [volume, debit, 0, Date.now(), 0]
+          `INSERT INTO data_smave (volume, debit, count, created_at, updated_at, id_user, random_user) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            volume,
+            debit,
+            0,
+            Date.now(),
+            0,
+            cekToken.data.id,
+            cekToken.data.random,
+          ]
         );
         res.status(200).json({ msg: "success" });
       }
