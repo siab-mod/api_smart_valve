@@ -1,16 +1,13 @@
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
-const verify = require("./tokenVerify");
-// const pool = require("../auth/db");
+const { verify, tanggal } = require("./helper");
+const pool = require("../auth/db");
 
 async function reqToken(req, res) {
-  const { secret, id } = req.body;
-  const user = {
-    id: id,
-  };
+  const { secret } = req.body;
   if (secret === process.env.SECRET_KEY) {
     try {
-      const token = jwt.sign(user, secret, {
+      const token = jwt.sign(req.body, secret, {
         expiresIn: "5m",
         noTimestamp: true,
       });
@@ -24,13 +21,65 @@ async function reqToken(req, res) {
 }
 
 async function inputData(req, res) {
-  // Mendapatkan SECRET_KEY yang diharapkan dari environment variable (env)
-
   const { token, volume, debit } = req.body;
 
   // cek token
-  const cek = await verify(token);
-  res.json(cek);
+  const cekToken = await verify(token);
+  if (cekToken.status === false) {
+    res.status(200).json({ msg: "Invalid token" });
+    return;
+  }
+
+  // cek identitas
+  const cekIdentitas = await pool.query(
+    `SELECT * FROM identitas_smave WHERE id = $1 AND random = $2`,
+    [cekToken.data.id, cekToken.data.random]
+  );
+
+  if (cekIdentitas.rowCount === 1) {
+    // cek data hari ini sudah ada atau belum
+    const cekData = await pool.query(
+      "SELECT * FROM data_smave ORDER BY created_at DESC LIMIT 1"
+    );
+
+    if (cekData.rowCount === 0) {
+      // simpan data (data pertama akun baru)
+      await pool.query(
+        `INSERT INTO data_smave (volume, debit, count, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)`,
+        [volume, debit, 0, Date.now(), 0]
+      );
+      res.status(200).json({ msg: "success" });
+    } else {
+      const data = cekData.rows[0];
+      // cek tanggal sama dengan hari ini tidak
+      if (tanggal(data.created_at) === true) {
+        // update data
+        await pool.query(
+          `UPDATE data_smave SET volume = $1, debit = $2, count = $3, updated_at = $4) WHERE id = $5 AND random = $6`,
+          [
+            data.volume * 1 + volume,
+            debit,
+            data.count + 1,
+            Date.now(),
+            cekToken.data.id,
+            cekToken.data.random,
+          ]
+        );
+        res.status(200).json({ msg: "success" });
+      } else {
+        // simpan data
+        await pool.query(
+          `INSERT INTO data_smave (volume, debit, count, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)`,
+          [volume, debit, 0, Date.now(), 0]
+        );
+        res.status(200).json({ msg: "success" });
+      }
+
+      res.status(200).json();
+    }
+  } else {
+    res.status(200).json({ msg: "Invalid token" });
+  }
 }
 
 function generateId(req, res) {
@@ -56,20 +105,16 @@ async function dashboard(req, res) {
 }
 
 async function newIdentity(req, res) {
-//   // const { nama, random } = req.body;
-//   // try {
-//   // const simpan = await pool.query(
-//   //   "INSERT INTO identitas_smave (nama, random) VALUE ($1, $2)",
-//   //   [nama, random],
-//   // );
-//   // } catch (error) {
-//   //   res.json(error);
-//   // }
-  res.send("simpan");
-}
-
-function aa(req, res) {
-  res.send("aha");
+  const { nama, random } = req.body;
+  try {
+    const simpan = await pool.query(
+      "INSERT INTO identitas_smave (nama, random) VALUES ($1, $2)",
+      [nama, random]
+    );
+    res.json(simpan);
+  } catch (error) {
+    res.json(error);
+  }
 }
 
 module.exports = {
@@ -78,5 +123,4 @@ module.exports = {
   dashboard,
   generateId,
   newIdentity,
-  aa,
 };

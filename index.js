@@ -17,14 +17,12 @@ const {
   dashboard,
   generateId,
   newIdentity,
-  aa,
 } = require("./controller/controller");
 app.post("/api/sv1/req-token", reqToken);
 app.post("/api/sv1/input-data", inputData);
 app.post("/api/sv1/dashboard", dashboard);
-app.get("/api/sv1/generateId", generateId);
-app.get("/api/sv1/new-identity", newIdentity);
-app.get("/api/sv1/aa", aa);
+app.get("/api/sv1/generate-id", generateId);
+app.post("/api/sv1/new-identity", newIdentity);
 
 app.listen(8080, () => {
   console.log("server running on port 8080");
