@@ -39,7 +39,7 @@ async function inputData(req, res) {
   if (cekIdentitas.rowCount === 1) {
     // cek data hari ini sudah ada atau belum
     const cekData = await pool.query(
-      "SELECT * FROM data_smave WHERE id = $1 AND random = $2 ORDER BY created_at DESC LIMIT 1",
+      "SELECT * FROM data_smave WHERE id_user = $1 AND random_user = $2 ORDER BY created_at DESC LIMIT 1",
       [cekToken.data.id, cekToken.data.random]
     );
 
