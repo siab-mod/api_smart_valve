@@ -77,10 +77,9 @@ async function inputData(req, res) {
         );
 
         // cek count
-        if(data.count + 1 >= 12){
-            // push notifikasi indikasi kebocoran
+        if (data.count + 1 >= 12) {
+          // push notifikasi indikasi kebocoran
         }
-
 
         res.status(200).json({ msg: "success" });
       } else {
@@ -102,7 +101,6 @@ async function inputData(req, res) {
 
       res.status(200).json();
     }
-
   } else {
     res.status(200).json({ msg: "Invalid token" });
   }
@@ -127,7 +125,54 @@ function generateId(req, res) {
 }
 
 async function dashboard(req, res) {
-  res.send("aha");
+  const { token } = req.body;
+  const cekToken = await verify(token);
+
+  if (cekToken.status === false) {
+    res.status(200).json({ msg: "Token expired" });
+    return;
+  }
+
+  try {
+    const lastData = await pool.query(
+      `SELECT * FROM data_smave WHERE id_user = $1 AND random_user = $2 ORDER BY created_at DESC LIMIT 1`,
+      [cekToken.data.id, cekToken.data.random]
+    );
+
+    const rata_rata = await pool.query(
+      `SELECT AVG(volume) AS rata_rata
+      FROM data_smave
+      WHERE id_user = $1 AND random_user = $2
+        AND id < (SELECT MAX(id) FROM data_smave WHERE id_user = $1 AND random_user = $2);
+      `,
+      [cekToken.data.id, cekToken.data.random]
+    );
+
+    const ref = await pool.query(
+      `SELECT * FROM referensi_smave WHERE id_user = $1 AND random_user = $2`,
+      [cekToken.data.id, cekToken.data.random]
+    );
+
+    const result = {
+      volume: lastData.rows[0].volume * 1,
+      debit: lastData.rows[0].debit * 1,
+      last_update:
+        lastData.rows[0].updated_at === 0
+          ? lastData.rows[0].created_at * 1
+          : lastData.rows[0].updated_at * 1,
+      rata_rata: rata_rata.rows[0].rata_rata * 1,
+      efisiensi:
+        ((lastData.rows[0].volume * 1) / (rata_rata.rows[0].rata_rata * 1)) *
+        100,
+      status_valve: ref.rows[0].status,
+      trigger_valve: ref.rows[0].trigger,
+      limitasi: ref.rows[0].limitasi
+    };
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json(error);
+  }
 }
 
 async function newIdentity(req, res) {
