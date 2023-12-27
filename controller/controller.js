@@ -2,16 +2,47 @@ require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const { verify, tanggal } = require("./helper");
 const pool = require("../auth/db");
+const mqtt = require("mqtt");
 
 async function reqToken(req, res) {
-  const { secret } = req.body;
+  const { secret, username, password, id, random, device } = req.body;
+
   if (secret === process.env.SECRET_KEY) {
     try {
-      const token = jwt.sign(req.body, secret, {
-        expiresIn: "5m",
-        noTimestamp: true,
-      });
-      res.status(200).json({ token: token });
+      let payload = {};
+      if (device === "esp") {
+        payload = {
+          secret: secret,
+          id_user: id,
+          random_user: random,
+          device: device,
+        };
+      } else {
+        payload = {
+          secret: secret,
+          username: username,
+          id_user: id,
+          random_user: random,
+          device: device,
+        };
+      }
+
+      // cek id user
+      const cek = await pool.query(
+        `SELECT * FROM identitas_smave WHERE id = $1 AND random = $2 AND username = $3 AND password = $4`,
+        [id, random, username, password]
+      );
+
+      console.log(cek.rowCount);
+      if (cek.rowCount === 1) {
+        const token = jwt.sign(payload, secret, {
+          expiresIn: device === "esp" ? "5m" : "1h", // app | esp
+          noTimestamp: true,
+        });
+        res.status(200).json({ token: token });
+      } else {
+        res.status(200).json({ msg: "device tidak terdaftar" });
+      }
     } catch (err) {
       console.log(err);
     }
@@ -177,9 +208,9 @@ async function dashboard(req, res) {
       efisiensi:
         ((lastData.rows[0].volume * 1) / (rata_rata.rows[0].rata_rata * 1)) *
         100,
-      status_valve: ref.rows[0].status,
-      trigger_valve: ref.rows[0].trigger,
-      limitasi: ref.rows[0].limitasi,
+      valve_status: ref.rows[0].status,
+      valve_trigger: ref.rows[0].trigger,
+      limitasi: ref.rows[0].limitasi * 1,
     };
 
     res.status(200).json(result);
@@ -189,15 +220,73 @@ async function dashboard(req, res) {
 }
 
 async function newIdentity(req, res) {
-  const { nama, random, password } = req.body;
+  const { nama, random, password, alamat, koordinat, image } = req.body;
+
+  if (
+    nama == "" &&
+    random == "" &&
+    password == "" &&
+    alamat == "" &&
+    koordinat == "" &&
+    image == ""
+  ) {
+    res.status(200).json({ msg: "lengkapi form" });
+    return;
+  }
+
   try {
     const simpan = await pool.query(
-      "INSERT INTO identitas_smave (nama, random, password) VALUES ($1, $2, $3)",
-      [nama, random, password]
+      "INSERT INTO identitas_smave (nama, random, password, alamat, koordinat, image) VALUES ($1, $2, $3, $4, $5, $6)",
+      [nama, random, password, alamat, koordinat, image]
     );
-    res.json(simpan);
+    res.status(200).json(simpan);
   } catch (error) {
-    res.json(error);
+    res.status(200).json(error);
+  }
+}
+
+async function controlVale(req, res) {
+  let { valve, token } = req.body;
+
+  const cekToken = verify(token);
+
+  if (cekToken.status === false) {
+    res.status(200).json({ msg: "Token expired" });
+    return;
+  }
+
+  try {
+    const client = mqtt.connect("mqtt://broker.mqtt-dashboard.com");
+
+    let receivedMessage = null;
+
+    client.on("connect", function () {
+      client.publish("aha/nan", valve.toString(), { retain: true });
+      client.subscribe("aha/nan");
+    });
+
+    client.on("message", (topic, message) => {
+      // Simpan pesan untuk dikirimkan sebagai respons
+      receivedMessage = `Menerima pesan dari topik ${topic}: ${message.toString()}`;
+    });
+
+    // Tunggu hingga pengaturan MQTT selesai
+    await new Promise((resolve) => client.on("message", () => resolve()));
+
+    // Kirim respons setelah pengaturan MQTT selesai
+    res.status(200).json({ msg: receivedMessage });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+async function setLimitasi(req, res) {
+  const { limit } = req.body;
+  try {
+    const set = await pool.query(`INSERT INTO referensi_smave ()`);
+  } catch (error) {
+    console.log(error);
   }
 }
 
@@ -207,4 +296,6 @@ module.exports = {
   dashboard,
   generateId,
   newIdentity,
+  controlVale,
+  setLimitasi,
 };
